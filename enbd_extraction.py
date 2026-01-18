@@ -305,29 +305,116 @@ def _get_hf_generator(model_id: str):
     return gen
 
 
-def _hf_answer(question: str, computed_context: str, excerpts: List[str], chat_history: List[Dict[str, str]]) -> str:
-  gen = _get_hf_generator(HF_MODEL_ID)
+def _token_len(gen: Any, text: str) -> int:
+  try:
+    tok = getattr(gen, "tokenizer", None)
+    if tok is None:
+      return len((text or "").split())
+    return int(len(tok.encode(text or "", add_special_tokens=True)))
+  except Exception:
+    return len((text or "").split())
 
+
+def _model_max_input_tokens(gen: Any) -> int:
+  tok = getattr(gen, "tokenizer", None)
+  if tok is None:
+    return 512
+  mx = getattr(tok, "model_max_length", None)
+  try:
+    mx_i = int(mx)
+    # Some tokenizers use very large sentinel values; clamp to something sane.
+    if mx_i <= 0 or mx_i > 4096:
+      return 512
+    return mx_i
+  except Exception:
+    return 512
+
+
+def _build_budgeted_prompt(
+  gen: Any,
+  question: str,
+  computed_context: str,
+  excerpts: List[str],
+  chat_history: List[Dict[str, str]],
+) -> str:
   system = (
     "You are a financial analyst specializing in UAE banking. "
     "Be concise and numeric. Use ONLY the provided context. "
     "If a requested value is not present, say you cannot find it in the provided context."
   )
 
-  parts: List[str] = [system]
-  if computed_context:
-    parts.append("COMPUTED METRICS & RATIOS:\n" + computed_context)
-  if excerpts:
-    parts.append("PDF EXCERPTS:\n" + "\n\n".join(f"[Excerpt {i+1}]\n{ex}" for i, ex in enumerate(excerpts)))
-  if chat_history:
-    recent = chat_history[-5:]
-    parts.append("RECENT CHAT:\n" + "\n".join(f"{m['role'].upper()}: {m['content']}" for m in recent))
+  q = (question or "").strip()
+  computed = (computed_context or "").strip()
 
-  parts.append("QUESTION:\n" + (question or ""))
-  prompt = "\n\n".join(parts)
+  # Keep recent chat small (helps avoid blowing the token budget)
+  recent = chat_history[-3:] if chat_history else []
+  recent_text = "\n".join(f"{m['role'].upper()}: {m['content']}" for m in recent)
+
+  # Start generous, then shrink until we fit.
+  keep_excerpts = list(excerpts or [])
+  max_excerpt_chars = 900
+  keep_excerpts = [str(ex)[:max_excerpt_chars] for ex in keep_excerpts]
+
+  # The computed context can get huge (metrics+ratios); cap it.
+  max_computed_chars = 2400
+  if len(computed) > max_computed_chars:
+    computed = computed[:max_computed_chars] + "\n...[truncated]"
+
+  max_tokens = _model_max_input_tokens(gen)
+
+  def assemble(exs: List[str], comp: str, chat: str) -> str:
+    parts: List[str] = [system]
+    if comp:
+      parts.append("COMPUTED METRICS & RATIOS:\n" + comp)
+    if exs:
+      parts.append("PDF EXCERPTS:\n" + "\n\n".join(f"[Excerpt {i+1}]\n{ex}" for i, ex in enumerate(exs)))
+    if chat:
+      parts.append("RECENT CHAT:\n" + chat)
+    parts.append("QUESTION:\n" + q)
+    return "\n\n".join(parts)
+
+  prompt = assemble(keep_excerpts, computed, recent_text)
+  # Reserve some space for generation tokens; keep prompt comfortably under max.
+  target = max(128, max_tokens - 64)
+
+  # Iteratively shrink: drop excerpts, then chat, then computed.
+  while _token_len(gen, prompt) > target:
+    if keep_excerpts:
+      keep_excerpts = keep_excerpts[: max(0, len(keep_excerpts) - 1)]
+      prompt = assemble(keep_excerpts, computed, recent_text)
+      continue
+    if recent_text:
+      recent_text = ""
+      prompt = assemble(keep_excerpts, computed, recent_text)
+      continue
+    if len(computed) > 600:
+      computed = computed[: max(200, int(len(computed) * 0.7))] + "\n...[truncated]"
+      prompt = assemble(keep_excerpts, computed, recent_text)
+      continue
+    break
+
+  return prompt
+
+
+def _hf_answer(question: str, computed_context: str, excerpts: List[str], chat_history: List[Dict[str, str]]) -> str:
+  gen = _get_hf_generator(HF_MODEL_ID)
+
+  prompt = _build_budgeted_prompt(
+    gen,
+    question=question,
+    computed_context=computed_context,
+    excerpts=excerpts,
+    chat_history=chat_history,
+  )
 
   try:
-    out = gen(prompt, max_new_tokens=HF_MAX_NEW_TOKENS, do_sample=False)
+    out = gen(
+      prompt,
+      max_new_tokens=HF_MAX_NEW_TOKENS,
+      do_sample=False,
+      truncation=True,
+      max_length=_model_max_input_tokens(gen),
+    )
     if isinstance(out, list) and out:
       text = out[0].get("generated_text") or out[0].get("text")
       if text:
@@ -1369,6 +1456,9 @@ def ask():
             "cost-to-income": "cost-to-income",
             "loan to deposit": "loan-to-deposit (ldr)",
             "ldr": "loan-to-deposit (ldr)",
+          "pre impairment margin": "pre-impairment margin",
+          "pre-impairment margin": "pre-impairment margin",
+          "pre impairment": "pre-impairment margin",
         }
 
         asked_key = None
@@ -1383,8 +1473,15 @@ def ask():
                 break
 
         if asked_key and asked_key in ratio_map and ratio_map[asked_key] is not None:
+          # If the user wants interpretation/explanation, still use LLM, but with a minimal prompt
+          # (prevents the 512-token limit from being exceeded on flan-t5-base).
+          wants_explain = bool(re.search(r"\b(explain|interpret|meaning|analysis|analy[sz]e|why|comment)\b", qn))
+          if wants_explain:
+            mini_context = f"{asked_key}: {fmt_pct(ratio_map[asked_key])}"
+            answer = _hf_answer(prompt, computed_context=mini_context, excerpts=[], chat_history=chat_history)
+          else:
             answer = f"{asked_key.upper()}: {fmt_pct(ratio_map[asked_key])}"
-            chat_history.append({"role": "assistant", "content": answer})
+          chat_history.append({"role": "assistant", "content": answer})
         else:
             try:
                 metric_answer = _try_metric_fast_path(prompt, dual=dual, single=single)
