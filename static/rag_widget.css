@@ -1,0 +1,31 @@
+/* Minimal, modern styling on top of Bootstrap */
+
+.rag-answer {
+  background: #ffffff;
+  color: #111827;
+  border-radius: 12px;
+  padding: 14px;
+  min-height: 160px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+}
+
+textarea.form-control {
+  border-radius: 12px;
+}
+
+.card {
+  border-radius: 14px;
+}
+
+.card-header {
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+}
+
+code {
+  background: rgba(13, 110, 253, 0.08);
+  padding: 2px 6px;
+  border-radius: 6px;
+}

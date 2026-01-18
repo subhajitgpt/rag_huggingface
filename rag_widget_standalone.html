@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RAG Widget (UI-only) — Demo</title>
+
+    <!-- Bootstrap (CDN) -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+
+    <style>
+      /* Portable: no external CSS needed */
+      .rag-answer {
+        background: #ffffff;
+        color: #111827;
+        border-radius: 12px;
+        padding: 14px;
+        min-height: 160px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        border: 1px solid rgba(17, 24, 39, 0.12);
+      }
+
+      textarea.form-control {
+        border-radius: 12px;
+      }
+
+      .card {
+        border-radius: 14px;
+      }
+
+      .card-header {
+        border-top-left-radius: 14px;
+        border-top-right-radius: 14px;
+      }
+
+      code {
+        background: rgba(13, 110, 253, 0.08);
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+
+      .chip {
+        border: 1px solid rgba(17, 24, 39, 0.12);
+        background: #fff;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 12px;
+        color: #374151;
+      }
+    </style>
+  </head>
+
+  <body class="bg-light">
+    <div class="container py-4">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <h1 class="h3 mb-1">RAG Widget</h1>
+          <div class="text-muted">UI-only (no Flask). Retrieval runs in your browser.</div>
+        </div>
+        <span class="chip">Standalone HTML</span>
+      </div>
+
+      <div class="row g-3">
+        <!-- Left: Documents -->
+        <div class="col-12 col-lg-5">
+          <div class="card shadow-sm">
+            <div class="card-header bg-white">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="fw-semibold">Documents</div>
+                <button id="btnReset" class="btn btn-sm btn-outline-secondary">Reset sample</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <p class="text-muted small mb-2">
+                Paste your knowledge base text here. The page will chunk it, compute a simple TF‑IDF retrieval score, and show the top matches.
+              </p>
+              <textarea id="docs" class="form-control font-monospace" rows="14"></textarea>
+              <div class="alert alert-info mt-3 mb-0 small">
+                <div class="fw-semibold">Why UI-only?</div>
+                <div>
+                  This version removes the Flask API entirely. It’s a lightweight RAG <em>retrieval</em> demo that always responds.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card shadow-sm mt-3">
+            <div class="card-header bg-white fw-semibold">Settings</div>
+            <div class="card-body">
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label">Top-K</label>
+                  <input id="topK" type="number" class="form-control" value="4" min="1" max="10" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Chunk size</label>
+                  <input id="chunkSize" type="number" class="form-control" value="650" min="200" max="2000" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Overlap</label>
+                  <input id="overlap" type="number" class="form-control" value="100" min="0" max="500" />
+                </div>
+              </div>
+
+              <div class="mt-3 p-2 rounded bg-body-tertiary small">
+                <div class="fw-semibold">Interview framing</div>
+                <div>
+                  RAG = chunk → index (TF‑IDF/embeddings) → retrieve top‑k → (optionally) generate.
+                  This UI-only version demonstrates the retrieval half.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Ask + Answer -->
+        <div class="col-12 col-lg-7">
+          <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Ask</div>
+            <div class="card-body">
+              <div class="input-group">
+                <input
+                  id="question"
+                  class="form-control"
+                  placeholder="Ask a question (e.g., 'How long is the refund window?')"
+                />
+                <button id="btnAsk" class="btn btn-primary">Ask</button>
+              </div>
+
+              <div id="status" class="mt-2 small text-muted"></div>
+
+              <div class="mt-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <div class="fw-semibold">Response</div>
+                  <div id="timing" class="small text-muted"></div>
+                </div>
+                <pre id="answer" class="rag-answer"></pre>
+              </div>
+
+              <div class="mt-3">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#retrievalPanel">
+                  Show retrieved chunks
+                </button>
+
+                <div class="collapse mt-2" id="retrievalPanel">
+                  <div class="card card-body bg-body-tertiary">
+                    <div id="retrieved" class="small"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-warning mt-3 mb-0 small">
+            <div class="fw-semibold">Want Hugging Face generation?</div>
+            <div>
+              Local generation (Transformers) needs Python or a browser model runtime; this standalone page focuses on retrieval so it always works offline.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="pt-4 mt-4 border-top text-muted small">
+        UI-only demo. Don’t paste secrets.
+      </footer>
+    </div>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"
+    ></script>
+
+    <script>
+      const SAMPLE_DOCS = `Refund policy:
+Refunds are available within 30 days of purchase with a valid receipt. Digital goods are non-refundable once downloaded.
+
+Shipping policy:
+Standard shipping takes 3-5 business days. Expedited shipping takes 1-2 business days. International shipping may take 10-15 days.
+
+Account security:
+Enable two-factor authentication (2FA) to secure your account. Passwords must be at least 12 characters. Do not reuse passwords.
+
+Troubleshooting login:
+If you cannot log in, reset your password. Check for caps lock. If 2FA fails, ensure your phone time is correct or use backup codes.`;
+
+      const el = (id) => document.getElementById(id);
+
+      function normalize(text) {
+        return (text || '')
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      function tokenize(text) {
+        const t = normalize(text);
+        if (!t) return [];
+        return t.split(' ').filter(Boolean);
+      }
+
+      function chunkText(text, chunkSize, overlap) {
+        const cleaned = (text || '').replace(/\s+/g, ' ').trim();
+        if (!cleaned) return [];
+
+        const chunks = [];
+        let start = 0;
+        while (start < cleaned.length) {
+          const end = Math.min(cleaned.length, start + chunkSize);
+          chunks.push(cleaned.slice(start, end));
+          if (end === cleaned.length) break;
+          start = Math.max(0, end - overlap);
+        }
+        return chunks;
+      }
+
+      function tf(tokens) {
+        const m = new Map();
+        for (const tok of tokens) m.set(tok, (m.get(tok) || 0) + 1);
+        const len = tokens.length || 1;
+        for (const [k, v] of m.entries()) m.set(k, v / len);
+        return m;
+      }
+
+      function idf(docTokensList) {
+        const df = new Map();
+        const n = docTokensList.length || 1;
+
+        for (const tokens of docTokensList) {
+          const seen = new Set(tokens);
+          for (const tok of seen) df.set(tok, (df.get(tok) || 0) + 1);
+        }
+
+        const idf = new Map();
+        for (const [tok, count] of df.entries()) {
+          // smooth IDF
+          idf.set(tok, Math.log((n + 1) / (count + 1)) + 1);
+        }
+        return idf;
+      }
+
+      function tfidfVector(tokens, idfMap) {
+        const tfMap = tf(tokens);
+        const v = new Map();
+        for (const [tok, t] of tfMap.entries()) {
+          const w = t * (idfMap.get(tok) || 0);
+          if (w !== 0) v.set(tok, w);
+        }
+        return v;
+      }
+
+      function cosineSim(vecA, vecB) {
+        let dot = 0;
+        let normA = 0;
+        let normB = 0;
+
+        for (const [, w] of vecA.entries()) normA += w * w;
+        for (const [, w] of vecB.entries()) normB += w * w;
+
+        // iterate the smaller map for dot
+        const [small, large] = vecA.size < vecB.size ? [vecA, vecB] : [vecB, vecA];
+        for (const [tok, w] of small.entries()) {
+          const w2 = large.get(tok) || 0;
+          dot += w * w2;
+        }
+
+        const denom = Math.sqrt(normA) * Math.sqrt(normB) + 1e-12;
+        return dot / denom;
+      }
+
+      function escapeHtml(s) {
+        return String(s || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      function retrieve(question, docs, topK, chunkSize, overlap) {
+        const chunks = chunkText(docs, chunkSize, overlap);
+        if (!chunks.length) return { chunks: [], scored: [] };
+
+        const docTokensList = chunks.map((c) => tokenize(c));
+        const idfMap = idf(docTokensList);
+
+        const qVec = tfidfVector(tokenize(question), idfMap);
+        const scored = chunks
+          .map((chunk, idx) => {
+            const dVec = tfidfVector(docTokensList[idx], idfMap);
+            const score = cosineSim(qVec, dVec);
+            return { score, chunk };
+          })
+          .sort((a, b) => b.score - a.score)
+          .slice(0, Math.max(1, Math.min(topK, chunks.length)));
+
+        return { chunks, scored };
+      }
+
+      function buildResponse(question, scored) {
+        if (!question.trim()) return 'Please enter a question.';
+        if (!scored.length) return "I don't know based on the provided context.";
+
+        const best = scored[0];
+        const context = scored.map((r, i) => `Context ${i + 1} (score=${r.score.toFixed(3)}):\n${r.chunk}`).join('\n\n');
+
+        // UI-only response: grounded summary from retrieved context
+        return [
+          'Answer (retrieval-only):',
+          '',
+          'Most relevant context:',
+          best.chunk,
+          '',
+          '---',
+          'Retrieved chunks:',
+          context
+        ].join('\n');
+      }
+
+      async function ask() {
+        const question = el('question').value.trim();
+        const docs = el('docs').value;
+        const topK = parseInt(el('topK').value || '4', 10);
+        const chunkSize = parseInt(el('chunkSize').value || '650', 10);
+        const overlap = parseInt(el('overlap').value || '100', 10);
+
+        el('status').textContent = '';
+        el('answer').textContent = '';
+        el('retrieved').innerHTML = '';
+        el('timing').textContent = '';
+
+        if (!question) {
+          el('status').textContent = 'Please enter a question.';
+          return;
+        }
+
+        const t0 = performance.now();
+        const { scored } = retrieve(question, docs, topK, chunkSize, overlap);
+        const t1 = performance.now();
+
+        el('answer').textContent = buildResponse(question, scored);
+        el('timing').textContent = `${Math.round(t1 - t0)} ms`;
+
+        const items = scored.map((r) => {
+          const score = r.score.toFixed(3);
+          const chunk = escapeHtml(r.chunk);
+          return `<div class="mb-2"><div class="fw-semibold">score=${score}</div><div class="font-monospace">${chunk}</div></div>`;
+        });
+        el('retrieved').innerHTML = items.join('') || '<div class="text-muted">No chunks retrieved.</div>';
+      }
+
+      function resetDocs() {
+        el('docs').value = SAMPLE_DOCS;
+        el('status').textContent = '';
+      }
+
+      // init
+      resetDocs();
+      el('btnAsk').addEventListener('click', ask);
+      el('btnReset').addEventListener('click', resetDocs);
+      el('question').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') ask();
+      });
+    </script>
+  </body>
+</html>

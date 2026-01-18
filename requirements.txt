@@ -1,0 +1,19 @@
+Flask==3.0.0
+pandas==2.1.4
+numpy==1.26.2
+plotly==5.18.0
+Werkzeug==3.0.1
+scikit-learn==1.4.2
+
+# RAG widget (Hugging Face)
+sentence-transformers>=2.7.0
+transformers>=4.38.0
+torch
+
+# Local vector DB for RAG demos
+chromadb>=0.5.0
+
+# ENBD PDF analyzer
+PyMuPDF>=1.23.0
+python-dotenv>=1.0.1
+sentencepiece>=0.2.0

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RAG Widget (Hugging Face) — Demo</title>
+
+    <!-- Bootstrap (CDN) -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='rag_widget.css') }}" />
+  </head>
+
+  <body class="bg-light">
+    <div class="container py-4">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <h1 class="h3 mb-1">RAG Widget</h1>
+          <div class="text-muted">Hugging Face embeddings + optional local generation</div>
+        </div>
+        <span class="badge text-bg-dark">Flask</span>
+      </div>
+
+      <form id="ragForm" method="post" action="/">
+      <div class="row g-3">
+        <!-- Left: Documents -->
+        <div class="col-12 col-lg-5">
+          <div class="card shadow-sm">
+            <div class="card-header bg-white">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="fw-semibold">Documents</div>
+                <button id="btnReset" type="button" class="btn btn-sm btn-outline-secondary">Reset sample</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <p class="text-muted small mb-2">
+                Paste your knowledge base text here. The app will chunk + embed it, then retrieve top-k context for your question.
+              </p>
+              <textarea id="docs" name="docs" class="form-control font-monospace" rows="14">{{ docs or sample_docs }}</textarea>
+              <textarea id="sampleDocs" class="d-none">{{ sample_docs }}</textarea>
+              <div class="alert alert-info mt-3 mb-0 small">
+                <div class="fw-semibold">Install notes</div>
+                <div>For embeddings: <code>pip install sentence-transformers</code></div>
+                <div>For local generation: <code>pip install transformers torch</code></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card shadow-sm mt-3">
+            <div class="card-header bg-white fw-semibold">Settings</div>
+            <div class="card-body">
+              <div class="row g-2">
+                <div class="col-12">
+                  <label class="form-label">Embedding model (Hugging Face)</label>
+                  <input id="embedModel" name="embed_model" class="form-control" value="{{ embed_model }}" />
+                  <div class="form-text">Good defaults: <code>sentence-transformers/all-MiniLM-L6-v2</code></div>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label">Generator model (Hugging Face)</label>
+                  <input id="genModel" name="gen_model" class="form-control" value="{{ gen_model }}" />
+                  <div class="form-text">Default: <code>google/flan-t5-base</code></div>
+                </div>
+
+                <div class="col-6">
+                  <label class="form-label">Top-K</label>
+                  <input id="topK" name="top_k" type="number" class="form-control" value="{{ top_k or 4 }}" min="1" max="10" />
+                </div>
+
+                <div class="col-6 d-flex align-items-end">
+                  <div class="form-check">
+                    <input id="useHf" name="use_hf_embeddings" class="form-check-input" type="checkbox" {% if use_hf_embeddings %}checked{% endif %} />
+                    <label class="form-check-label" for="useHf">Use HF embeddings</label>
+                    <div class="form-text">Off = fast TF‑IDF fallback</div>
+                  </div>
+                </div>
+
+                <div class="col-6 d-flex align-items-end">
+                  <div class="form-check">
+                    <input id="useGenerator" name="use_generator" class="form-check-input" type="checkbox" {% if use_generator %}checked{% endif %} />
+                    <label class="form-check-label" for="useGenerator">Use LLM</label>
+                    <div class="form-text">On = generated answer</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3 p-2 rounded bg-body-tertiary small">
+                <div class="fw-semibold">Interview tip</div>
+                <div>Say “RAG = retrieve → augment prompt → generate”, and mention chunking + embeddings + evaluation.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Ask + Answer -->
+        <div class="col-12 col-lg-7">
+          <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Ask</div>
+            <div class="card-body">
+              <div class="input-group">
+                <input
+                  id="question"
+                  name="question"
+                  class="form-control"
+                  value="{{ question }}"
+                  placeholder="Ask a question (e.g., 'How long is the refund window?')"
+                />
+                <button id="btnAsk" type="submit" class="btn btn-primary">Ask</button>
+              </div>
+
+              <div id="status" class="mt-2 small text-muted"></div>
+
+              {% if error %}
+                <div class="alert alert-danger mt-3 mb-0 small">{{ error }}</div>
+              {% endif %}
+
+              <div class="mt-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <div class="fw-semibold">Answer</div>
+                  <div id="timing" class="small text-muted">
+                    {% if elapsed_ms is not none %}{{ elapsed_ms }} ms{% endif %}
+                  </div>
+                </div>
+                <pre id="answer" class="rag-answer">{% if answer %}{{ answer }}{% endif %}</pre>
+              </div>
+
+              <div class="mt-3">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#retrievalPanel">
+                  Show retrieved chunks
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#promptPanel">
+                  Show prompt
+                </button>
+
+                <div class="collapse mt-2" id="retrievalPanel">
+                  <div class="card card-body bg-body-tertiary">
+                    <div id="retrieved" class="small">
+                      {% if retrieved %}
+                        {% for r in retrieved %}
+                          <div class="mb-2">
+                            <div class="fw-semibold">score={{ "%.3f"|format(r.score) }}</div>
+                            <div class="font-monospace">{{ r.chunk }}</div>
+                          </div>
+                        {% endfor %}
+                      {% else %}
+                        <div class="text-muted">No chunks retrieved yet.</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="collapse mt-2" id="promptPanel">
+                  <div class="card card-body bg-body-tertiary">
+                    <pre id="prompt" class="small mb-0">{% if prompt %}{{ prompt }}{% endif %}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-warning mt-3 mb-0 small">
+            <div class="fw-semibold">Note on model downloads</div>
+            <div>Embedding/generation models may download on first run (can take time). Use “retrieval-only” to test quickly.</div>
+          </div>
+        </div>
+      </div>
+      </form>
+
+      <footer class="pt-4 mt-4 border-top text-muted small">
+        Built for interview prep and demos. Keep secrets out of prompts.
+      </footer>
+    </div>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"
+    ></script>
+
+    <script>
+      // UI-only convenience: reset the docs box to sample text without any server calls.
+      document.getElementById('btnReset').addEventListener('click', () => {
+        document.getElementById('docs').value = document.getElementById('sampleDocs').value;
+      });
+
+      // Give instant feedback on submit (Hugging Face downloads can take time).
+      document.getElementById('ragForm').addEventListener('submit', () => {
+        const status = document.getElementById('status');
+        if (status) status.textContent = 'Running… (first run can download models)';
+        const btn = document.getElementById('btnAsk');
+        if (btn) btn.disabled = true;
+      });
+    </script>
+  </body>
+</html>
