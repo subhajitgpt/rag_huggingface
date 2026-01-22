@@ -17,3 +17,7 @@ chromadb>=0.5.0
 PyMuPDF>=1.23.0
 python-dotenv>=1.0.1
 sentencepiece>=0.2.0
+
+# OCR dependencies (HDFC PDF analyzer)
+pytesseract>=0.3.10
+pillow>=10.0.0
