@@ -1,0 +1,140 @@
+{
+  "action": "bulk_property_analysis",
+  "requests": [
+    {
+      "request_id": "KOL-REQ-1",
+      "city": "Kolkata",
+      "location": "Salt Lake Sector V",
+      "property_type": "2 BHK",
+      "size_sqft": 1100,
+      "median_sale_psf": 8200,
+      "median_rent_psf_monthly": 42,
+      "year_built": 2017,
+      "condition_premium_pct": 6,
+      "vacancy_pct": 5,
+      "maintenance_pct": 1.2,
+      "counts": {
+        "supermarket": 9,
+        "hospital": 3,
+        "school": 6,
+        "metro_station": 2,
+        "restaurant": 28
+      },
+      "ratings": {
+        "supermarket": 4.3,
+        "hospital": 4.2,
+        "school": 4.1,
+        "metro_station": 4.4,
+        "restaurant": 4.2
+      }
+    },
+    {
+      "request_id": "KOL-REQ-2",
+      "city": "Kolkata",
+      "location": "New Town Action Area I",
+      "property_type": "3 BHK",
+      "size_sqft": 1450,
+      "median_sale_psf": 7600,
+      "median_rent_psf_monthly": 38,
+      "year_built": 2019,
+      "condition_premium_pct": 7,
+      "vacancy_pct": 6,
+      "maintenance_pct": 1.3,
+      "counts": {
+        "supermarket": 8,
+        "hospital": 2,
+        "school": 5,
+        "metro_station": 1,
+        "restaurant": 24
+      },
+      "ratings": {
+        "supermarket": 4.2,
+        "hospital": 4.1,
+        "school": 4.0,
+        "metro_station": 4.0,
+        "restaurant": 4.1
+      }
+    },
+    {
+      "request_id": "KOL-REQ-3",
+      "city": "Kolkata",
+      "location": "Rajarhat",
+      "property_type": "1 BHK",
+      "size_sqft": 720,
+      "median_sale_psf": 6800,
+      "median_rent_psf_monthly": 34,
+      "year_built": 2016,
+      "condition_premium_pct": 5,
+      "vacancy_pct": 7,
+      "maintenance_pct": 1.1,
+      "counts": {
+        "supermarket": 7,
+        "hospital": 2,
+        "school": 4,
+        "metro_station": 1,
+        "restaurant": 18
+      },
+      "ratings": {
+        "supermarket": 4.1,
+        "hospital": 4.0,
+        "school": 3.9,
+        "metro_station": 3.8,
+        "restaurant": 4.0
+      }
+    },
+    {
+      "request_id": "KOL-REQ-4",
+      "city": "Kolkata",
+      "location": "Ballygunge",
+      "property_type": "2 BHK",
+      "size_sqft": 980,
+      "median_sale_psf": 12500,
+      "median_rent_psf_monthly": 52,
+      "year_built": 2014,
+      "condition_premium_pct": 8,
+      "vacancy_pct": 4,
+      "maintenance_pct": 1.4,
+      "counts": {
+        "supermarket": 10,
+        "hospital": 4,
+        "school": 7,
+        "metro_station": 2,
+        "restaurant": 35
+      },
+      "ratings": {
+        "supermarket": 4.4,
+        "hospital": 4.3,
+        "school": 4.3,
+        "metro_station": 4.2,
+        "restaurant": 4.5
+      }
+    },
+    {
+      "request_id": "KOL-REQ-5",
+      "city": "Kolkata",
+      "location": "Park Street",
+      "property_type": "Studio",
+      "size_sqft": 520,
+      "median_sale_psf": 14200,
+      "median_rent_psf_monthly": 68,
+      "year_built": 2012,
+      "condition_premium_pct": 9,
+      "vacancy_pct": 3,
+      "maintenance_pct": 1.5,
+      "counts": {
+        "supermarket": 9,
+        "hospital": 3,
+        "school": 5,
+        "metro_station": 2,
+        "restaurant": 45
+      },
+      "ratings": {
+        "supermarket": 4.3,
+        "hospital": 4.2,
+        "school": 4.1,
+        "metro_station": 4.4,
+        "restaurant": 4.6
+      }
+    }
+  ]
+}
