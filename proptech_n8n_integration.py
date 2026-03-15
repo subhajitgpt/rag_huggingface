@@ -59,50 +59,53 @@ INDEX_HTML = """\
       .muted { color: #6b7280; font-size: 0.95rem; }
       .ok { color: #065f46; }
       .err { color: #991b1b; }
-      .hint { background: #f9fafb; border: 1px solid #e5e7eb; padding: 10px; border-radius: 10px; margin-top: 10px; }
-      code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.95rem; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+      .kv { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; background: #fff; }
+      .kv h3 { margin: 0 0 8px; font-size: 1rem; }
+      .kvrow { display: grid; grid-template-columns: 220px 1fr; gap: 10px; padding: 6px 0; border-top: 1px solid #f3f4f6; }
+      .kvrow:first-of-type { border-top: 0; }
+      .k { color: #374151; font-weight: 600; }
+      .v { color: #111827; overflow-wrap: anywhere; }
+      .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.85rem; border: 1px solid #e5e7eb; }
+      .badge.ok { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+      .badge.err { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+      details { margin-top: 12px; }
+      summary { cursor: pointer; color: #111827; font-weight: 600; }
+      table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; }
+      th, td { text-align: left; padding: 10px 12px; border-top: 1px solid #f3f4f6; vertical-align: top; }
+      th { font-size: 0.9rem; letter-spacing: 0.01em; color: #374151; background: #f9fafb; position: sticky; top: 0; z-index: 1; border-top: 0; }
+      td { color: #111827; }
+      tbody tr:nth-child(even) td { background: #fcfcfd; }
+      tbody tr:hover td { background: #f9fafb; }
+      .tableWrap { max-height: 420px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; }
+      .tableWrap::-webkit-scrollbar { height: 12px; width: 12px; }
+      .tableWrap::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 999px; }
+      .num { text-align: right; font-variant-numeric: tabular-nums; }
+      .cell { max-width: 360px; white-space: normal; overflow-wrap: break-word; word-break: normal; hyphens: auto; line-height: 1.25rem; }
+      .cell.small { max-width: 240px; }
+      .cell.wide { max-width: 560px; }
+      .nowrap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; }
+      .pill { display: inline-block; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 10px; border-radius: 999px; font-size: 0.85rem; border: 1px solid #e5e7eb; background: #f9fafb; color: #111827; }
+
+      /* Sticky first column improves scanability */
+      th.stickyCol, td.stickyCol { position: sticky; left: 0; z-index: 2; }
+      th.stickyCol { z-index: 3; }
+      th.stickyCol, td.stickyCol { border-right: 1px solid #e5e7eb; }
+
+      /* Column sizing (applied via classes) */
+      .col-request_id { min-width: 96px; }
+      .col-city { min-width: 90px; }
+      .col-location { min-width: 160px; }
+      .col-property_type { min-width: 110px; }
+      .col-action { min-width: 190px; }
+      .col-best_option { min-width: 260px; }
     </style>
   </head>
   <body>
     <div class="card">
       <h2 style="margin:0 0 6px">Upload PropTech JSON and trigger n8n</h2>
       <div class="muted">This uploads a JSON file, then POSTs its contents to your n8n webhook and displays the response.</div>
-
-      <div class="hint">
-        <div style="font-weight:600; margin-bottom:6px">Expected JSON format</div>
-        <pre style="margin:0; background:#111827; color:#e5e7eb">{
-  "action": "bulk_property_analysis",
-  "requests": [
-    {
-      "request_id": "REQ-1",
-      "city": "Dubai",
-      "location": "Dubai Marina",
-      "property_type": "2 BHK",
-      "size_sqft": 1250,
-      "median_sale_psf": 2100,
-      "median_rent_psf_monthly": 95,
-      "year_built": 2019,
-      "condition_premium_pct": 6,
-      "vacancy_pct": 5,
-      "maintenance_pct": 1.2,
-      "counts": {
-        "supermarket": 8,
-        "hospital": 2,
-        "school": 4,
-        "metro_station": 1,
-        "restaurant": 25
-      },
-      "ratings": {
-        "supermarket": 4.4,
-        "hospital": 4.3,
-        "school": 4.2,
-        "metro_station": 4.5,
-        "restaurant": 4.6
-      }
-    }
-  ]
-}</pre>
-      </div>
 
       <form id="uploadForm" enctype="multipart/form-data">
         <label for="json_file">JSON file</label>
@@ -111,7 +114,13 @@ INDEX_HTML = """\
       </form>
 
       <div id="status" class="muted" style="margin-top:10px"></div>
-      <pre id="out" style="display:none"></pre>
+
+      <div id="summary" class="grid" style="display:none"></div>
+      <div id="result" class="kv" style="display:none; margin-top:12px"></div>
+      <details id="rawBox" style="display:none">
+        <summary>Raw n8n response JSON</summary>
+        <pre id="out" style="margin-top:10px"></pre>
+      </details>
     </div>
 
     <script>
@@ -120,6 +129,223 @@ INDEX_HTML = """\
       const btn = document.getElementById('submitBtn');
       const status = document.getElementById('status');
       const out = document.getElementById('out');
+      const summary = document.getElementById('summary');
+      const result = document.getElementById('result');
+      const rawBox = document.getElementById('rawBox');
+
+      function escapeHtml(s) {
+        return String(s)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#039;');
+      }
+
+      function renderSummary(data) {
+        const ok = !!(data && data.ok);
+        const badge = ok
+          ? '<span class="badge ok">OK</span>'
+          : '<span class="badge err">ERROR</span>';
+
+        const items = [
+          ['Status', badge],
+          ['HTTP status', data && data.status_code != null ? String(data.status_code) : ''],
+          ['Invoked at', data && data.invoked_at ? escapeHtml(data.invoked_at) : ''],
+          ['Action', data && data.request_action ? escapeHtml(data.request_action) : ''],
+          ['Request count', data && data.request_count != null ? String(data.request_count) : ''],
+          ['Webhook', data && data.webhook_url ? escapeHtml(data.webhook_url) : ''],
+        ];
+
+        const left = items.slice(0, 3);
+        const right = items.slice(3);
+
+        function box(title, rows) {
+          const rowsHtml = rows.map(([k,v]) => (
+            '<div class="kvrow"><div class="k">' + escapeHtml(k) + '</div><div class="v">' + v + '</div></div>'
+          )).join('');
+          return '<div class="kv"><h3>' + escapeHtml(title) + '</h3>' + rowsHtml + '</div>';
+        }
+
+        summary.innerHTML = box('Request', left) + box('Details', right);
+        summary.style.display = 'grid';
+      }
+
+      function renderResultKV(obj) {
+        if (obj === null || obj === undefined) {
+          result.innerHTML = '<h3>n8n Result</h3><div class="muted">(empty)</div>';
+          result.style.display = 'block';
+          return;
+        }
+        if (typeof obj !== 'object') {
+          result.innerHTML = '<h3>n8n Result</h3><div class="kvrow"><div class="k">value</div><div class="v">' + escapeHtml(obj) + '</div></div>';
+          result.style.display = 'block';
+          return;
+        }
+
+        function stringifyCell(v) {
+          if (v === null || v === undefined) return '';
+          if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
+          try {
+            const s = JSON.stringify(v);
+            return s.length > 220 ? (s.slice(0, 220) + '…') : s;
+          } catch {
+            return '[object]';
+          }
+        }
+
+        function findArrayOfObjects(root) {
+          // Prefer common keys first
+          const preferredKeys = ['results', 'items', 'data', 'output', 'responses', 'analyses', 'properties', 'requests'];
+          for (const k of preferredKeys) {
+            const v = root[k];
+            if (Array.isArray(v) && v.length && typeof v[0] === 'object') return { key: k, arr: v };
+          }
+          // Otherwise: first array of objects anywhere at top-level
+          for (const k of Object.keys(root)) {
+            const v = root[k];
+            if (Array.isArray(v) && v.length && typeof v[0] === 'object') return { key: k, arr: v };
+          }
+          // If the root itself is an array of objects
+          if (Array.isArray(root) && root.length && typeof root[0] === 'object') return { key: '(root)', arr: root };
+          return null;
+        }
+
+        function renderTable(title, arr) {
+          const rows = arr.slice(0, 200);
+          const hiddenCols = new Set([
+            'estimated_rent_month',
+          ]);
+          const keySet = new Set();
+          for (const r of rows) {
+            if (r && typeof r === 'object') {
+              for (const k of Object.keys(r)) keySet.add(k);
+            }
+          }
+          let cols = Array.from(keySet).filter((c) => !hiddenCols.has(String(c || '').toLowerCase()));
+          // Make key fields appear first if present
+          const priority = ['request_id', 'id', 'name', 'city', 'location', 'property_type', 'status', 'ok', 'message', 'score', 'roi', 'cap_rate', 'irr'];
+          cols.sort((a, b) => {
+            const ia = priority.indexOf(a);
+            const ib = priority.indexOf(b);
+            if (ia === -1 && ib === -1) return a.localeCompare(b);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+          });
+          cols = cols.slice(0, 16);
+
+          // Detect numeric-like columns (right-align)
+          const numericCols = new Set();
+          for (const c of cols) {
+            let seen = 0;
+            let numeric = 0;
+            for (const r of rows) {
+              const v = (r || {})[c];
+              if (v === null || v === undefined || v === '') continue;
+              seen += 1;
+              if (typeof v === 'number') {
+                numeric += 1;
+              } else if (typeof v === 'string' && v.trim() && !isNaN(Number(v.replaceAll(',', '')))) {
+                numeric += 1;
+              }
+              if (seen >= 12) break;
+            }
+            if (seen > 0 && numeric / seen >= 0.9) numericCols.add(c);
+          }
+
+          function cellClass(col, vStr) {
+            // Make verbose columns wider
+            if (col.toLowerCase().includes('option') || col.toLowerCase().includes('explain') || col.toLowerCase().includes('reason')) return 'cell wide';
+            if ((vStr || '').length > 80) return 'cell wide';
+            if ((vStr || '').length > 40) return 'cell';
+            return 'cell small';
+          }
+
+          function safeColClass(col) {
+            return String(col || '').toLowerCase().replaceAll(/[^a-z0-9_\-]+/g, '-');
+          }
+
+          function shouldNoWrap(col) {
+            const c = String(col || '').toLowerCase();
+            return (
+              c === 'request_id' ||
+              c === 'city' ||
+              c === 'country' ||
+              c === 'property_type' ||
+              c === 'batch_size' ||
+              c.endsWith('_psf') ||
+              c.includes('psf')
+            );
+          }
+
+          function shouldClamp(col) {
+            const c = String(col || '').toLowerCase();
+            return c.includes('best_option') || c.includes('recommend') || c.includes('summary') || c.includes('rationale');
+          }
+
+          function renderCell(col, rawVal) {
+            // Show "action" as a pill if present
+            if (col === 'action' && rawVal !== null && rawVal !== undefined && String(rawVal).trim()) {
+              const v = String(rawVal);
+              return '<span class="pill" title="' + escapeHtml(v) + '">' + escapeHtml(v) + '</span>';
+            }
+            const v = stringifyCell(rawVal);
+            const base = cellClass(col, v);
+            const nowrap = shouldNoWrap(col) ? ' nowrap' : '';
+            const clamp = shouldClamp(col) ? ' clamp' : '';
+            const colCls = ' col-' + safeColClass(col);
+            return '<div class="' + base + nowrap + clamp + colCls + '" title="' + escapeHtml(v) + '">' + escapeHtml(v) + '</div>';
+          }
+
+          const thead = '<thead><tr>' + cols.map(c => {
+            const colCls = ' col-' + safeColClass(c);
+            const sticky = (String(c) === 'request_id') ? ' stickyCol' : '';
+            const classAttr = ' class="' + (numericCols.has(c) ? 'num' : '') + colCls + sticky + '"';
+            return '<th' + classAttr + '>' + escapeHtml(c) + '</th>';
+          }).join('') + '</tr></thead>';
+          const tbody = '<tbody>' + rows.map(r => {
+            return '<tr>' + cols.map(c => {
+              const colCls = ' col-' + safeColClass(c);
+              const isNum = numericCols.has(c);
+              const sticky = (String(c) === 'request_id') ? ' stickyCol' : '';
+              const classAttr = ' class="' + (isNum ? 'num' : '') + colCls + sticky + '"';
+              return '<td' + classAttr + '>' + renderCell(c, (r || {})[c]) + '</td>';
+            }).join('') + '</tr>';
+          }).join('') + '</tbody>';
+
+          const note = arr.length > 200
+            ? '<div class="muted" style="margin-top:8px">Showing first 200 rows. See raw JSON below for full output.</div>'
+            : '';
+
+          return (
+            '<h3>n8n Result</h3>' +
+            '<div class="muted">Table view from <b>' + escapeHtml(title) + '</b> (' + arr.length + ' items)</div>' +
+            '<div class="tableWrap"><table>' + thead + tbody + '</table></div>' +
+            note
+          );
+        }
+
+        const found = findArrayOfObjects(obj);
+        if (found && found.arr && found.arr.length) {
+          result.innerHTML = renderTable(found.key, found.arr);
+          result.style.display = 'block';
+          return;
+        }
+
+        // Fallback: top-level key/value view
+        const keys = Object.keys(obj).filter((k) => String(k || '').toLowerCase() !== 'estimated_rent_month');
+        const rows = keys.slice(0, 40).map((k) => {
+          return '<div class="kvrow"><div class="k">' + escapeHtml(k) + '</div><div class="v">' + escapeHtml(stringifyCell(obj[k])) + '</div></div>';
+        }).join('');
+
+        const note = keys.length > 40
+          ? '<div class="muted" style="margin-top:8px">Showing first 40 fields. See raw JSON below for full output.</div>'
+          : '';
+
+        result.innerHTML = '<h3>n8n Result</h3>' + rows + note;
+        result.style.display = 'block';
+      }
 
       async function doUpload() {
         const file = fileInput.files && fileInput.files[0];
@@ -137,7 +363,9 @@ INDEX_HTML = """\
         btn.disabled = true;
         status.textContent = 'Uploading… (this will call n8n)';
         status.className = 'muted';
-        out.style.display = 'none';
+        summary.style.display = 'none';
+        result.style.display = 'none';
+        rawBox.style.display = 'none';
 
         const fd = new FormData(form);
 
@@ -155,8 +383,14 @@ INDEX_HTML = """\
             status.textContent = data && data.message ? data.message : 'Done.';
             status.className = (data && data.ok) ? 'ok' : 'err';
           }
-          out.textContent = JSON.stringify(data, null, 2);
-          out.style.display = 'block';
+
+          renderSummary(data);
+
+          const n8nRes = data && data.n8n_result !== undefined ? data.n8n_result : null;
+          renderResultKV(n8nRes);
+
+          out.textContent = JSON.stringify(n8nRes, null, 2);
+          rawBox.style.display = 'block';
         } catch (e) {
           status.textContent = 'Network error: ' + (e && e.message ? e.message : String(e));
           status.className = 'err';
