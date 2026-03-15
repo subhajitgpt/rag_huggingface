@@ -1,0 +1,491 @@
+{
+  "name": "Financial Statement Upload Webhook - Metrics Flattened to Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "financial-statement-upload",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1518bab1-26d0-4e1f-992b-436717d8f70f",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "financial-statement-upload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\nconst binary = $binary || {};\nconst fileKey = binary.pdf_file ? 'pdf_file' : (binary.data ? 'data' : null);\n\nlet parsedMetrics = {};\nif (body.pdf_metrics_json) {\n  try {\n    parsedMetrics = JSON.parse(body.pdf_metrics_json);\n  } catch (e) {\n    parsedMetrics = {\n      parse_error: String(e),\n      raw_value: body.pdf_metrics_json\n    };\n  }\n}\n\nlet parsedFinancial = {};\nif (body.financial_details_json) {\n  try {\n    parsedFinancial = JSON.parse(body.financial_details_json);\n  } catch (e) {\n    parsedFinancial = {\n      parse_error: String(e),\n      raw_value: body.financial_details_json\n    };\n  }\n}\n\nconst finIncome = parsedFinancial.income_statement || {};\nconst finBS = parsedFinancial.balance_sheet || {};\nconst finRatios = parsedFinancial.computed_ratios || {};\nconst finUnits = parsedFinancial.units || {};\nconst finQuality = parsedFinancial.extraction_quality || {};\n\nfunction incomeCurrent(key) {\n  const obj = finIncome[key] || {};\n  return (obj.current ?? obj.prior ?? '');\n}\n\nfunction ratioValue(key) {\n  const obj = finRatios[key] || {};\n  return (obj.value ?? '');\n}\n\nfunction ratioPct(key) {\n  const obj = finRatios[key] || {};\n  return (obj.as_percent ?? '');\n}\n\nif (!fileKey) {\n  return [{\n    json: {\n      ok: false,\n      message: 'No PDF found. Send multipart/form-data with file field pdf_file or data.',\n      receivedAt: new Date().toISOString(),\n      company_name: body.company_name || '',\n      quarter: body.quarter || '',\n      industry: body.industry || '',\n      original_field_name: '',\n      file_name: '',\n      mime_type: '',\n      file_extension: '',\n      file_size: '',\n      ingest_status: 'failed_validation',\n      pdf_sha256: body.pdf_sha256 || parsedMetrics.sha256 || '',\n      pdf_size_bytes: body.pdf_size_bytes || parsedMetrics.file_size_bytes || '',\n      pdf_page_count: body.pdf_page_count || parsedMetrics.page_count || '',\n      pdf_word_count_sampled: body.pdf_word_count_sampled || ((parsedMetrics.text_stats || {}).word_count ?? ''),\n      pdf_metrics_json: body.pdf_metrics_json || '',\n      metrics_ingested_at: parsedMetrics.ingested_at || '',\n      metrics_pdf_signature_ok: String(parsedMetrics.pdf_signature_ok ?? ''),\n      metrics_chars: String(((parsedMetrics.text_stats || {}).chars ?? '')),\n      metrics_nonempty_line_count: String(((parsedMetrics.text_stats || {}).nonempty_line_count ?? '')),\n      metrics_number_token_count: String(((parsedMetrics.text_stats || {}).number_token_count ?? '')),\n      metrics_email_count: String(((parsedMetrics.text_stats || {}).email_count ?? '')),\n      metrics_url_count: String(((parsedMetrics.text_stats || {}).url_count ?? '')),\n      metrics_currency_mention_count: String(((parsedMetrics.text_stats || {}).currency_mention_count ?? '')),\n      metrics_image_count_in_sampled_pages: String(parsedMetrics.image_count_in_sampled_pages ?? ''),\n      metrics_sampled_page_count: String(parsedMetrics.sampled_page_count ?? ''),\n      metrics_preview_text: parsedMetrics.preview_text || '',\n      metrics_metadata_json: JSON.stringify(parsedMetrics.metadata || {}),\n\n      financial_details_json: body.financial_details_json || '',\n      financial_currency: body.financial_currency || finUnits.currency || '',\n      financial_units_label: body.financial_units_label || finUnits.units_label || '',\n      financial_found_items_count: String(body.financial_found_items_count ?? finQuality.found_items_count ?? ''),\n      financial_has_income_statement: String(body.financial_has_income_statement ?? finQuality.has_income_statement ?? ''),\n      financial_has_balance_sheet: String(body.financial_has_balance_sheet ?? finQuality.has_balance_sheet ?? ''),\n\n      income_total_operating_income: String(body.income_total_operating_income ?? incomeCurrent('total_operating_income') ?? ''),\n      income_profit_for_period: String(body.income_profit_for_period ?? incomeCurrent('profit_for_period') ?? ''),\n      bs_total_assets: String(body.bs_total_assets ?? finBS.total_assets ?? ''),\n\n      ratio_roa: String(body.ratio_roa ?? ratioValue('roa') ?? ''),\n      ratio_roa_pct: String(body.ratio_roa_pct ?? ratioPct('roa') ?? ''),\n      ratio_roe: String(body.ratio_roe ?? ratioValue('roe') ?? ''),\n      ratio_roe_pct: String(body.ratio_roe_pct ?? ratioPct('roe') ?? ''),\n      ratio_cost_to_income: String(body.ratio_cost_to_income ?? ratioValue('cost_to_income') ?? ''),\n      ratio_cost_to_income_pct: String(body.ratio_cost_to_income_pct ?? ratioPct('cost_to_income') ?? ''),\n      ratio_npl_ratio: String(body.ratio_npl_ratio ?? ratioValue('npl_ratio') ?? ''),\n      ratio_npl_ratio_pct: String(body.ratio_npl_ratio_pct ?? ratioPct('npl_ratio') ?? ''),\n      ratio_coverage_ratio: String(body.ratio_coverage_ratio ?? ratioValue('coverage_ratio') ?? ''),\n      ratio_coverage_ratio_pct: String(body.ratio_coverage_ratio_pct ?? ratioPct('coverage_ratio') ?? ''),\n      ratio_loan_to_deposit: String(body.ratio_loan_to_deposit ?? ratioValue('loan_to_deposit') ?? ''),\n      ratio_loan_to_deposit_pct: String(body.ratio_loan_to_deposit_pct ?? ratioPct('loan_to_deposit') ?? '')\n    }\n  }];\n}\n\nconst file = binary[fileKey];\n\nreturn [{\n  json: {\n    ok: true,\n    message: 'PDF received successfully in n8n.',\n    receivedAt: new Date().toISOString(),\n    company_name: body.company_name || '',\n    quarter: body.quarter || '',\n    industry: body.industry || '',\n    original_field_name: fileKey,\n    file_name: file.fileName || '',\n    mime_type: file.mimeType || '',\n    file_extension: file.fileExtension || '',\n    file_size: file.fileSize || '',\n    ingest_status: 'received',\n    pdf_sha256: body.pdf_sha256 || parsedMetrics.sha256 || '',\n    pdf_size_bytes: body.pdf_size_bytes || parsedMetrics.file_size_bytes || file.fileSize || '',\n    pdf_page_count: body.pdf_page_count || parsedMetrics.page_count || '',\n    pdf_word_count_sampled: body.pdf_word_count_sampled || ((parsedMetrics.text_stats || {}).word_count ?? ''),\n    pdf_metrics_json: body.pdf_metrics_json || '',\n    metrics_ingested_at: parsedMetrics.ingested_at || '',\n    metrics_pdf_signature_ok: String(parsedMetrics.pdf_signature_ok ?? ''),\n    metrics_chars: String(((parsedMetrics.text_stats || {}).chars ?? '')),\n    metrics_nonempty_line_count: String(((parsedMetrics.text_stats || {}).nonempty_line_count ?? '')),\n    metrics_number_token_count: String(((parsedMetrics.text_stats || {}).number_token_count ?? '')),\n    metrics_email_count: String(((parsedMetrics.text_stats || {}).email_count ?? '')),\n    metrics_url_count: String(((parsedMetrics.text_stats || {}).url_count ?? '')),\n    metrics_currency_mention_count: String(((parsedMetrics.text_stats || {}).currency_mention_count ?? '')),\n    metrics_image_count_in_sampled_pages: String(parsedMetrics.image_count_in_sampled_pages ?? ''),\n    metrics_sampled_page_count: String(parsedMetrics.sampled_page_count ?? ''),\n    metrics_preview_text: parsedMetrics.preview_text || '',\n    metrics_metadata_json: JSON.stringify(parsedMetrics.metadata || {}),\n\n    financial_details_json: body.financial_details_json || '',\n    financial_currency: body.financial_currency || finUnits.currency || '',\n    financial_units_label: body.financial_units_label || finUnits.units_label || '',\n    financial_found_items_count: String(body.financial_found_items_count ?? finQuality.found_items_count ?? ''),\n    financial_has_income_statement: String(body.financial_has_income_statement ?? finQuality.has_income_statement ?? ''),\n    financial_has_balance_sheet: String(body.financial_has_balance_sheet ?? finQuality.has_balance_sheet ?? ''),\n\n    income_total_operating_income: String(body.income_total_operating_income ?? incomeCurrent('total_operating_income') ?? ''),\n    income_profit_for_period: String(body.income_profit_for_period ?? incomeCurrent('profit_for_period') ?? ''),\n    bs_total_assets: String(body.bs_total_assets ?? finBS.total_assets ?? ''),\n\n    ratio_roa: String(body.ratio_roa ?? ratioValue('roa') ?? ''),\n    ratio_roa_pct: String(body.ratio_roa_pct ?? ratioPct('roa') ?? ''),\n    ratio_roe: String(body.ratio_roe ?? ratioValue('roe') ?? ''),\n    ratio_roe_pct: String(body.ratio_roe_pct ?? ratioPct('roe') ?? ''),\n    ratio_cost_to_income: String(body.ratio_cost_to_income ?? ratioValue('cost_to_income') ?? ''),\n    ratio_cost_to_income_pct: String(body.ratio_cost_to_income_pct ?? ratioPct('cost_to_income') ?? ''),\n    ratio_npl_ratio: String(body.ratio_npl_ratio ?? ratioValue('npl_ratio') ?? ''),\n    ratio_npl_ratio_pct: String(body.ratio_npl_ratio_pct ?? ratioPct('npl_ratio') ?? ''),\n    ratio_coverage_ratio: String(body.ratio_coverage_ratio ?? ratioValue('coverage_ratio') ?? ''),\n    ratio_coverage_ratio_pct: String(body.ratio_coverage_ratio_pct ?? ratioPct('coverage_ratio') ?? ''),\n    ratio_loan_to_deposit: String(body.ratio_loan_to_deposit ?? ratioValue('loan_to_deposit') ?? ''),\n    ratio_loan_to_deposit_pct: String(body.ratio_loan_to_deposit_pct ?? ratioPct('loan_to_deposit') ?? '')\n  },\n  binary: {\n    [fileKey]: file\n  }\n}];"
+      },
+      "id": "dc8ce372-19f2-4f1b-ba09-cdfe35cfd886",
+      "name": "Inspect Upload + Parse Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    received_at: $json.receivedAt || '',\n    company_name: $json.company_name || '',\n    quarter: $json.quarter || '',\n    industry: $json.industry || '',\n    ok: String($json.ok ?? ''),\n    ingest_status: $json.ingest_status || '',\n    message: $json.message || '',\n    original_field_name: $json.original_field_name || '',\n    file_name: $json.file_name || '',\n    mime_type: $json.mime_type || '',\n    file_extension: $json.file_extension || '',\n    file_size: String($json.file_size ?? ''),\n    pdf_sha256: $json.pdf_sha256 || '',\n    pdf_size_bytes: String($json.pdf_size_bytes ?? ''),\n    pdf_page_count: String($json.pdf_page_count ?? ''),\n    pdf_word_count_sampled: String($json.pdf_word_count_sampled ?? ''),\n    metrics_ingested_at: $json.metrics_ingested_at || '',\n    metrics_pdf_signature_ok: String($json.metrics_pdf_signature_ok ?? ''),\n    metrics_chars: String($json.metrics_chars ?? ''),\n    metrics_nonempty_line_count: String($json.metrics_nonempty_line_count ?? ''),\n    metrics_number_token_count: String($json.metrics_number_token_count ?? ''),\n    metrics_email_count: String($json.metrics_email_count ?? ''),\n    metrics_url_count: String($json.metrics_url_count ?? ''),\n    metrics_currency_mention_count: String($json.metrics_currency_mention_count ?? ''),\n    metrics_image_count_in_sampled_pages: String($json.metrics_image_count_in_sampled_pages ?? ''),\n    metrics_sampled_page_count: String($json.metrics_sampled_page_count ?? ''),\n    metrics_preview_text: $json.metrics_preview_text || '',\n    metrics_metadata_json: $json.metrics_metadata_json || '',\n    pdf_metrics_json: $json.pdf_metrics_json || '',\n\n    financial_currency: $json.financial_currency || '',\n    financial_units_label: $json.financial_units_label || '',\n    financial_found_items_count: String($json.financial_found_items_count ?? ''),\n    financial_has_income_statement: String($json.financial_has_income_statement ?? ''),\n    financial_has_balance_sheet: String($json.financial_has_balance_sheet ?? ''),\n\n    income_total_operating_income: String($json.income_total_operating_income ?? ''),\n    income_profit_for_period: String($json.income_profit_for_period ?? ''),\n    bs_total_assets: String($json.bs_total_assets ?? ''),\n\n    ratio_roa: String($json.ratio_roa ?? ''),\n    ratio_roa_pct: String($json.ratio_roa_pct ?? ''),\n    ratio_roe: String($json.ratio_roe ?? ''),\n    ratio_roe_pct: String($json.ratio_roe_pct ?? ''),\n    ratio_cost_to_income: String($json.ratio_cost_to_income ?? ''),\n    ratio_cost_to_income_pct: String($json.ratio_cost_to_income_pct ?? ''),\n    ratio_npl_ratio: String($json.ratio_npl_ratio ?? ''),\n    ratio_npl_ratio_pct: String($json.ratio_npl_ratio_pct ?? ''),\n    ratio_coverage_ratio: String($json.ratio_coverage_ratio ?? ''),\n    ratio_coverage_ratio_pct: String($json.ratio_coverage_ratio_pct ?? ''),\n    ratio_loan_to_deposit: String($json.ratio_loan_to_deposit ?? ''),\n    ratio_loan_to_deposit_pct: String($json.ratio_loan_to_deposit_pct ?? ''),\n\n    financial_details_json: $json.financial_details_json || ''\n  }\n}];"
+      },
+      "id": "f2148a94-1eb0-4031-9323-d554a6b7a8d0",
+      "name": "Prepare Sheet Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1guxwwImoIgb1mWqiTEQ8jCCsN0dZkyM939mC_u7YVG0",
+          "mode": "list",
+          "cachedResultName": "Metrics hook",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1guxwwImoIgb1mWqiTEQ8jCCsN0dZkyM939mC_u7YVG0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1guxwwImoIgb1mWqiTEQ8jCCsN0dZkyM939mC_u7YVG0/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "received_at": "={{$json.received_at}}",
+            "company_name": "={{$json.company_name}}",
+            "quarter": "={{$json.quarter}}",
+            "industry": "={{$json.industry}}",
+            "ok": "={{$json.ok}}",
+            "ingest_status": "={{$json.ingest_status}}",
+            "message": "={{$json.message}}",
+            "original_field_name": "={{$json.original_field_name}}",
+            "file_name": "={{$json.file_name}}",
+            "mime_type": "={{$json.mime_type}}",
+            "file_extension": "={{$json.file_extension}}",
+            "file_size": "={{$json.file_size}}",
+            "pdf_sha256": "={{$json.pdf_sha256}}",
+            "pdf_size_bytes": "={{$json.pdf_size_bytes}}",
+            "pdf_page_count": "={{$json.pdf_page_count}}",
+            "pdf_word_count_sampled": "={{$json.pdf_word_count_sampled}}",
+            "metrics_ingested_at": "={{$json.metrics_ingested_at}}",
+            "metrics_pdf_signature_ok": "={{$json.metrics_pdf_signature_ok}}",
+            "metrics_chars": "={{$json.metrics_chars}}",
+            "metrics_nonempty_line_count": "={{$json.metrics_nonempty_line_count}}",
+            "metrics_number_token_count": "={{$json.metrics_number_token_count}}",
+            "metrics_email_count": "={{$json.metrics_email_count}}",
+            "metrics_url_count": "={{$json.metrics_url_count}}",
+            "metrics_currency_mention_count": "={{$json.metrics_currency_mention_count}}",
+            "metrics_image_count_in_sampled_pages": "={{$json.metrics_image_count_in_sampled_pages}}",
+            "metrics_sampled_page_count": "={{$json.metrics_sampled_page_count}}",
+            "metrics_preview_text": "={{$json.metrics_preview_text}}",
+            "metrics_metadata_json": "={{$json.metrics_metadata_json}}",
+            "pdf_metrics_json": "={{$json.pdf_metrics_json}}",
+            "financial_currency": "={{$json.financial_currency}}",
+            "financial_units_label": "={{$json.financial_units_label}}",
+            "financial_found_items_count": "={{$json.financial_found_items_count}}",
+            "financial_has_income_statement": "={{$json.financial_has_income_statement}}",
+            "financial_has_balance_sheet": "={{$json.financial_has_balance_sheet}}",
+            "income_total_operating_income": "={{$json.income_total_operating_income}}",
+            "income_profit_for_period": "={{$json.income_profit_for_period}}",
+            "bs_total_assets": "={{$json.bs_total_assets}}",
+            "ratio_roa": "={{$json.ratio_roa}}",
+            "ratio_roa_pct": "={{$json.ratio_roa_pct}}",
+            "ratio_roe": "={{$json.ratio_roe}}",
+            "ratio_roe_pct": "={{$json.ratio_roe_pct}}",
+            "ratio_cost_to_income": "={{$json.ratio_cost_to_income}}",
+            "ratio_cost_to_income_pct": "={{$json.ratio_cost_to_income_pct}}",
+            "ratio_npl_ratio": "={{$json.ratio_npl_ratio}}",
+            "ratio_npl_ratio_pct": "={{$json.ratio_npl_ratio_pct}}",
+            "ratio_coverage_ratio": "={{$json.ratio_coverage_ratio}}",
+            "ratio_coverage_ratio_pct": "={{$json.ratio_coverage_ratio_pct}}",
+            "ratio_loan_to_deposit": "={{$json.ratio_loan_to_deposit}}",
+            "ratio_loan_to_deposit_pct": "={{$json.ratio_loan_to_deposit_pct}}",
+            "financial_details_json": "={{$json.financial_details_json}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "received_at",
+              "displayName": "received_at",
+              "type": "string"
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "type": "string"
+            },
+            {
+              "id": "quarter",
+              "displayName": "quarter",
+              "type": "string"
+            },
+            {
+              "id": "industry",
+              "displayName": "industry",
+              "type": "string"
+            },
+            {
+              "id": "ok",
+              "displayName": "ok",
+              "type": "string"
+            },
+            {
+              "id": "ingest_status",
+              "displayName": "ingest_status",
+              "type": "string"
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "type": "string"
+            },
+            {
+              "id": "original_field_name",
+              "displayName": "original_field_name",
+              "type": "string"
+            },
+            {
+              "id": "file_name",
+              "displayName": "file_name",
+              "type": "string"
+            },
+            {
+              "id": "mime_type",
+              "displayName": "mime_type",
+              "type": "string"
+            },
+            {
+              "id": "file_extension",
+              "displayName": "file_extension",
+              "type": "string"
+            },
+            {
+              "id": "file_size",
+              "displayName": "file_size",
+              "type": "string"
+            },
+            {
+              "id": "pdf_sha256",
+              "displayName": "pdf_sha256",
+              "type": "string"
+            },
+            {
+              "id": "pdf_size_bytes",
+              "displayName": "pdf_size_bytes",
+              "type": "string"
+            },
+            {
+              "id": "pdf_page_count",
+              "displayName": "pdf_page_count",
+              "type": "string"
+            },
+            {
+              "id": "pdf_word_count_sampled",
+              "displayName": "pdf_word_count_sampled",
+              "type": "string"
+            },
+            {
+              "id": "metrics_ingested_at",
+              "displayName": "metrics_ingested_at",
+              "type": "string"
+            },
+            {
+              "id": "metrics_pdf_signature_ok",
+              "displayName": "metrics_pdf_signature_ok",
+              "type": "string"
+            },
+            {
+              "id": "metrics_chars",
+              "displayName": "metrics_chars",
+              "type": "string"
+            },
+            {
+              "id": "metrics_nonempty_line_count",
+              "displayName": "metrics_nonempty_line_count",
+              "type": "string"
+            },
+            {
+              "id": "metrics_number_token_count",
+              "displayName": "metrics_number_token_count",
+              "type": "string"
+            },
+            {
+              "id": "metrics_email_count",
+              "displayName": "metrics_email_count",
+              "type": "string"
+            },
+            {
+              "id": "metrics_url_count",
+              "displayName": "metrics_url_count",
+              "type": "string"
+            },
+            {
+              "id": "metrics_currency_mention_count",
+              "displayName": "metrics_currency_mention_count",
+              "type": "string"
+            },
+            {
+              "id": "metrics_image_count_in_sampled_pages",
+              "displayName": "metrics_image_count_in_sampled_pages",
+              "type": "string"
+            },
+            {
+              "id": "metrics_sampled_page_count",
+              "displayName": "metrics_sampled_page_count",
+              "type": "string"
+            },
+            {
+              "id": "metrics_preview_text",
+              "displayName": "metrics_preview_text",
+              "type": "string"
+            },
+            {
+              "id": "metrics_metadata_json",
+              "displayName": "metrics_metadata_json",
+              "type": "string"
+            },
+            {
+              "id": "pdf_metrics_json",
+              "displayName": "pdf_metrics_json",
+              "type": "string"
+            },
+            {
+              "id": "financial_currency",
+              "displayName": "financial_currency",
+              "type": "string"
+            },
+            {
+              "id": "financial_units_label",
+              "displayName": "financial_units_label",
+              "type": "string"
+            },
+            {
+              "id": "financial_found_items_count",
+              "displayName": "financial_found_items_count",
+              "type": "string"
+            },
+            {
+              "id": "financial_has_income_statement",
+              "displayName": "financial_has_income_statement",
+              "type": "string"
+            },
+            {
+              "id": "financial_has_balance_sheet",
+              "displayName": "financial_has_balance_sheet",
+              "type": "string"
+            },
+            {
+              "id": "income_total_operating_income",
+              "displayName": "income_total_operating_income",
+              "type": "string"
+            },
+            {
+              "id": "income_profit_for_period",
+              "displayName": "income_profit_for_period",
+              "type": "string"
+            },
+            {
+              "id": "bs_total_assets",
+              "displayName": "bs_total_assets",
+              "type": "string"
+            },
+            {
+              "id": "ratio_roa",
+              "displayName": "ratio_roa",
+              "type": "string"
+            },
+            {
+              "id": "ratio_roa_pct",
+              "displayName": "ratio_roa_pct",
+              "type": "string"
+            },
+            {
+              "id": "ratio_roe",
+              "displayName": "ratio_roe",
+              "type": "string"
+            },
+            {
+              "id": "ratio_roe_pct",
+              "displayName": "ratio_roe_pct",
+              "type": "string"
+            },
+            {
+              "id": "ratio_cost_to_income",
+              "displayName": "ratio_cost_to_income",
+              "type": "string"
+            },
+            {
+              "id": "ratio_cost_to_income_pct",
+              "displayName": "ratio_cost_to_income_pct",
+              "type": "string"
+            },
+            {
+              "id": "ratio_npl_ratio",
+              "displayName": "ratio_npl_ratio",
+              "type": "string"
+            },
+            {
+              "id": "ratio_npl_ratio_pct",
+              "displayName": "ratio_npl_ratio_pct",
+              "type": "string"
+            },
+            {
+              "id": "ratio_coverage_ratio",
+              "displayName": "ratio_coverage_ratio",
+              "type": "string"
+            },
+            {
+              "id": "ratio_coverage_ratio_pct",
+              "displayName": "ratio_coverage_ratio_pct",
+              "type": "string"
+            },
+            {
+              "id": "ratio_loan_to_deposit",
+              "displayName": "ratio_loan_to_deposit",
+              "type": "string"
+            },
+            {
+              "id": "ratio_loan_to_deposit_pct",
+              "displayName": "ratio_loan_to_deposit_pct",
+              "type": "string"
+            },
+            {
+              "id": "financial_details_json",
+              "displayName": "financial_details_json",
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "667a6ae1-04fd-4fe4-b488-72d1bf484d52",
+      "name": "Append to Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        784,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "dtfdUsBGd3EO4V1g",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const src = $('Inspect Upload + Parse Metrics').first().json;\nreturn [{\n  json: {\n    ok: true,\n    message: 'PDF received successfully in n8n and logged to Google Sheets.',\n    receivedAt: src.receivedAt,\n    company_name: src.company_name,\n    quarter: src.quarter,\n    industry: src.industry,\n    original_field_name: src.original_field_name,\n    file_name: src.file_name,\n    mime_type: src.mime_type,\n    file_extension: src.file_extension,\n    file_size: src.file_size,\n    pdf_sha256: src.pdf_sha256,\n    pdf_size_bytes: src.pdf_size_bytes,\n    pdf_page_count: src.pdf_page_count,\n    pdf_word_count_sampled: src.pdf_word_count_sampled,\n    metrics_chars: src.metrics_chars,\n    metrics_image_count_in_sampled_pages: src.metrics_image_count_in_sampled_pages,\n    metrics_sampled_page_count: src.metrics_sampled_page_count,\n\n    income_total_operating_income: src.income_total_operating_income,\n    income_profit_for_period: src.income_profit_for_period,\n    bs_total_assets: src.bs_total_assets,\n    ratio_roa: src.ratio_roa,\n    ratio_roa_pct: src.ratio_roa_pct,\n    ratio_roe: src.ratio_roe,\n    ratio_roe_pct: src.ratio_roe_pct,\n\n    sheet_update: 'success'\n  }\n}];"
+      },
+      "id": "d45a7f6f-13cb-459a-930c-0d4c726c4480",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "id": "75d63ab8-e9b3-42d9-873d-5aba5df3b4b7",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Inspect Upload + Parse Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inspect Upload + Parse Metrics": {
+      "main": [
+        [
+          {
+            "node": "Prepare Sheet Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sheet Row": {
+      "main": [
+        [
+          {
+            "node": "Append to Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "82aa48bd-38eb-4cab-8fbf-902ef473bedd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ca02a887a43c0281642200ca32b11e281915b8d220ae308f2df433ea243d5e81"
+  },
+  "id": "fUxEWVZudAkp7rb8",
+  "tags": []
+}

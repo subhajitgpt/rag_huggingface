@@ -6,12 +6,14 @@ This repo contains a few small RAG-style demos built in Python:
 - **ENBD PDF Financial Analyzer (Flask web app)**: Upload a PDF, extract key financial metrics/ratios, and ask questions grounded in the PDF using **Hugging Face** LLMs + **ChromaDB** retrieval.
 - **HDFC PDF Financial Analyzer (Flask web app)**: Same idea as ENBD, adapted for HDFC-style financial statements. Includes optional OCR (Tesseract) when PDFs are scanned.
 - **E-commerce RAG Assistant (CLI app)**: A simple shopping/returns/support assistant that uses **ChromaDB + embeddings** (and optional reranking) plus **Hugging Face** generation.
+- **Mini Agentic Flask Demo (web app)**: A tiny, deterministic example that shows an agent loop (plan → tool calls → verification) with an execution trace UI.
 
 ## What’s inside
 
 - [enbd_extraction.py](enbd_extraction.py): Flask app for PDF upload + extraction + chat (RAG).
 - [hdfc_extraction.py](hdfc_extraction.py): Flask app for HDFC-style PDF upload + extraction + chat (RAG).
 - [ecommerce_hf_assistant.py](ecommerce_hf_assistant.py): CLI assistant demonstrating vector DB retrieval + optional reranking.
+- [agentic_flask_ui_example.py](agentic_flask_ui_example.py): Minimal Flask UI that demonstrates agent-style tool execution (no external LLM).
 
 ## Tech stack
 
@@ -59,6 +61,18 @@ Run:
 ```powershell
 python .\ecommerce_hf_assistant.py
 ```
+
+### 4) Mini agentic Flask demo (web)
+
+Run:
+
+```powershell
+python .\agentic_flask_ui_example.py
+```
+
+Open:
+
+- http://127.0.0.1:5091
 
 ## Configuration (env vars)
 
